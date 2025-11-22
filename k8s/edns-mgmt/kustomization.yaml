@@ -1,0 +1,5 @@
+namespace: edns-mgmt
+resources:
+  - namespace.yaml
+  - dashboard.yaml
+  - ingress.yaml

@@ -1,0 +1,186 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: adguard
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: adguard-config
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: adguard-work
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: adguard
+  labels:
+    app: adguard
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: adguard
+  template:
+    metadata:
+      labels:
+        app: adguard
+    spec:
+      serviceAccountName: adguard
+      securityContext:
+        fsGroup: 1000
+      initContainers:
+        - name: init-config
+          image: busybox:1.36
+          imagePullPolicy: IfNotPresent
+          command:
+            - sh
+            - -c
+            - |
+              set -e
+              if [ ! -f /config/AdGuardHome.yaml ]; then
+                cp /config-template/AdGuardHome.yaml /config/AdGuardHome.yaml
+              fi
+          volumeMounts:
+            - name: config
+              mountPath: /config
+            - name: config-template
+              mountPath: /config-template
+      containers:
+        - name: adguard
+          image: adguard/adguardhome:latest
+          imagePullPolicy: IfNotPresent
+          args:
+            - --no-check-update
+            - --work-dir
+            - /opt/adguardhome/work
+            - --config
+            - /opt/adguardhome/conf/AdGuardHome.yaml
+            - --log-level
+            - info
+          ports:
+            - containerPort: 53
+              name: dns-tcp
+              protocol: TCP
+            - containerPort: 53
+              name: dns-udp
+              protocol: UDP
+            - containerPort: 443
+              name: doh
+              protocol: TCP
+            - containerPort: 853
+              name: dot
+              protocol: TCP
+            - containerPort: 784
+              name: doq
+              protocol: UDP
+            - containerPort: 8445
+              name: ui
+              protocol: TCP
+          resources:
+            requests:
+              cpu: 150m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+          livenessProbe:
+            httpGet:
+              path: /
+              port: ui
+            initialDelaySeconds: 20
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /
+              port: ui
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          volumeMounts:
+            - name: config
+              mountPath: /opt/adguardhome/conf
+            - name: work
+              mountPath: /opt/adguardhome/work
+            - name: tls
+              mountPath: /certs
+              readOnly: true
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+      volumes:
+        - name: config
+          persistentVolumeClaim:
+            claimName: adguard-config
+        - name: work
+          persistentVolumeClaim:
+            claimName: adguard-work
+        - name: config-template
+          configMap:
+            name: adguard-config
+            items:
+              - key: AdGuardHome.yaml
+                path: AdGuardHome.yaml
+        - name: tls
+          secret:
+            secretName: edns-tls
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: adguard-dns
+  labels:
+    app: adguard
+spec:
+  type: LoadBalancer
+  selector:
+    app: adguard
+  ports:
+    - name: dns-udp
+      port: 53
+      protocol: UDP
+      targetPort: dns-udp
+    - name: dns-tcp
+      port: 53
+      protocol: TCP
+      targetPort: dns-tcp
+    - name: doh
+      port: 443
+      protocol: TCP
+      targetPort: doh
+    - name: dot
+      port: 853
+      protocol: TCP
+      targetPort: dot
+    - name: doq
+      port: 784
+      protocol: UDP
+      targetPort: doq
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: adguard-ui
+  labels:
+    app: adguard
+spec:
+  selector:
+    app: adguard
+  ports:
+    - name: http
+      port: 8445
+      targetPort: ui

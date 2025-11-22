@@ -1,0 +1,11 @@
+namespace: edns-system
+resources:
+  - namespace.yaml
+  - adguard.yaml
+  - ingress.yaml
+configMapGenerator:
+  - name: adguard-config
+    files:
+      - ../../config/adguard/AdGuardHome.yaml
+generatorOptions:
+  disableNameSuffixHash: true

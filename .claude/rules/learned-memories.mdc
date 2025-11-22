@@ -1,0 +1,22 @@
+# Project Memory
+
+This file stores project-specific knowledge, conventions, and user preferences learned by the AI assistant.
+
+## User Preferences
+
+- Use Kubernetes as the primary deployment target; include Docker Compose v2 for local/dev.
+- Avoid common default host ports in Docker Compose (3000/8080/8000); prefer obscured mappings.
+
+## Technical Decisions
+
+- Encrypted DNS stack uses AdGuard Home with DoH/DoT/DoQ enabled and curated blocklists (StevenBlack, AdGuard DNS, AdAway, KAD).
+- TLS material is provided via the `edns-tls` secret in both `edns-system` (DNS) and `edns-mgmt` (dashboard) namespaces.
+- Default admin user is `admin` with a bcrypt hash for `changeMe!` in `config/adguard/AdGuardHome.yaml`; must be rotated before production.
+- Kubernetes Dashboard is included (edns-mgmt namespace) with token-based auth; RBAC can be tightened from the current cluster-admin binding.
+- Ingress hostnames are placeholders (`edns.local`, `doh.edns.local`, `dashboard.edns.local`) and should be adjusted to match real DNS/TLS.
+
+## Project Conventions
+
+- Apply the stack via Kustomize (`kubectl apply -k k8s`).
+- Persistent volumes back AdGuard config/work; config is templated from `config/adguard/AdGuardHome.yaml` and copied if missing.
+- TASKS.md is used for progress tracking and is gitignored; README is the single source of repo documentation.

@@ -1,0 +1,10 @@
+# Generated state and local secrets
+TASKS.md
+data/
+certs/
+*.env
+*.log
+*.local
+.DS_Store
+AGENTS.md
+eDNS-PRD.md

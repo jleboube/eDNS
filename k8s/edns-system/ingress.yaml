@@ -1,0 +1,50 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: adguard-ui
+  annotations:
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - edns.local
+      secretName: edns-tls
+  rules:
+    - host: edns.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: adguard-ui
+                port:
+                  name: http
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: adguard-doh
+  annotations:
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
+    nginx.ingress.kubernetes.io/ssl-passthrough: "true"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "90"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "90"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - doh.edns.local
+      secretName: edns-tls
+  rules:
+    - host: doh.edns.local
+      http:
+        paths:
+          - path: /dns-query
+            pathType: Prefix
+            backend:
+              service:
+                name: adguard-dns
+                port:
+                  name: doh

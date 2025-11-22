@@ -1,0 +1,32 @@
+# Local runner for the encrypted DNS stack (AdGuard Home).
+# Uses non-default host ports to avoid conflicts.
+services:
+  adguard:
+    image: adguard/adguardhome:latest
+    container_name: edns-adguard
+    restart: unless-stopped
+    ports:
+      - "5533:53/tcp"
+      - "5533:53/udp"
+      - "44443:443/tcp"
+      - "4853:853/tcp"
+      - "4784:784/udp"
+      - "8445:8445/tcp"
+    environment:
+      - TZ=UTC
+    volumes:
+      - ./data/adguard/work:/opt/adguardhome/work
+      - ./data/adguard/conf:/opt/adguardhome/conf
+      - ./config/adguard/AdGuardHome.yaml:/opt/adguardhome/AdGuardHome.template.yaml:ro
+      - ./certs:/certs:ro
+    command: >
+      sh -c "if [ ! -f /opt/adguardhome/conf/AdGuardHome.yaml ];
+             then cp /opt/adguardhome/AdGuardHome.template.yaml /opt/adguardhome/conf/AdGuardHome.yaml;
+             fi;
+             /opt/adguardhome/AdGuardHome --config /opt/adguardhome/conf/AdGuardHome.yaml --work-dir /opt/adguardhome/work --no-check-update"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8445/control/status"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
